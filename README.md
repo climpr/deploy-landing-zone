@@ -1,11 +1,10 @@
 # Climpr - Deploy Landing Zone
 
-![Climpr logo](/.img/favicon.ico)
+<!-- TOC -->
 
 <!-- TOC -->
 
 - [Climpr - Deploy Landing Zone](#climpr---deploy-landing-zone)
-  - [Introduction](#introduction)
     - [Goals](#goals)
     - [Non-Goals](#non-goals)
   - [Getting started](#getting-started)
@@ -16,9 +15,7 @@
     - [Archetypes](#archetypes)
     - [Landing Zone definitions](#landing-zone-definitions)
 
-<!-- /TOC -->
-
-## Introduction
+<!-- /TOC -->on
 
 The purpose of this solution is to provision and maintain Platform and Application Landing Zones according to the principles in [Azure Enterprise Scale Landing Zones](https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/) using Infrastructure as Code (IaC).
 
