@@ -1,6 +1,6 @@
 # Climpr - Deploy Landing Zone
 
-![Climpr logo](https://www.climpr.com/img/about.jpg)
+![Climpr logo](/.img/favicon.ico)
 
 <!-- TOC -->
 
