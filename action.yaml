@@ -1,0 +1,154 @@
+name: Deploy Landing Zone
+description: This workflow deploys and decommissions Landing Zones.
+
+inputs:
+  solution-path:
+    description: Path to the Climpr Landing Zones solution directory.
+    required: true
+
+  landing-zone-path:
+    description: Landing Zone directory path.
+    required: true
+
+  archetypes-path:
+    description: Archetypes path.
+    required: true
+
+  root-landing-zones-path:
+    description: Root path for all Landing Zones.
+    required: true
+
+  decommissioned-landing-zones-path:
+    description: Root path for all decommissioned Landing Zones.
+    required: true
+
+  az-ps-version:
+    description: The version of Az PS modules to install.
+    default: 12.4.0
+    required: false
+
+  bicep-version:
+    description: The version of Bicep to install.
+    default: v0.30.23
+    required: false
+
+  github-token:
+    description: The token for the GitHub app that is allowed to create and update repositories in the organization.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Set Git config
+      shell: bash
+      run: |
+        git config user.name github-actions
+        git config user.email github-actions@github.com
+
+    - name: Install PS Modules
+      uses: climpr/install-psmodules@v1
+      with:
+        modules: |
+          Az.ManagementPartner:0.7.4
+          Az.Subscription:0.11.1
+          Microsoft.Graph.Authentication:2.24.0
+          Microsoft.Graph.Groups:2.24.0
+          Microsoft.Graph.Applications:2.24.0
+
+    - name: Install and configure Bicep version
+      shell: pwsh
+      run: |
+        # Download desired Bicep version
+        curl -Lo bicep https://github.com/Azure/bicep/releases/download/${{ inputs.bicep-version }}/bicep-linux-x64
+
+        # Install Bicep
+        chmod +x ./bicep
+        sudo mv ./bicep /usr/local/bin/bicep
+
+        # Configure az cli to use the externally installed version
+        az config set bicep.use_binary_from_path=true
+
+    - name: Process Landing Zone
+      uses: azure/powershell@v2
+      env:
+        solutionPath: ${{ inputs.solution-path }}
+        landingZonePath: ${{ inputs.landing-zone-path }}
+        archetypesPath: ${{ inputs.archetypes-path }}
+        rootLandingZonesPath: ${{ inputs.root-landing-zones-path }}
+        decommissionedLandingZonesPath: ${{ inputs.decommissioned-landing-zones-path }}
+        actionPath: ${{ github.action_path }}
+        GH_TOKEN: ${{ inputs.github-token }}
+        debug: ${{ runner.debug }}
+      with:
+        azPSVersion: ${{ inputs.az-ps-version }}
+        inlineScript: |
+          #* Run scripts
+
+          #* Set debug preference from runner configuration
+          $DebugPreference = [bool]$env:debug ? "Continue" : "SilentlyContinue"
+
+          #* Set-PartnerId.ps1
+          echo "::group::Set-PartnerId"
+          
+          & "$($env:actionPath)/src/Set-PartnerId.ps1" -PartnerId "6100086"
+
+          echo "::endgroup::"
+
+          #* Deploy-GitHubRepository.ps1
+          echo "::group::Deploy-GitHubRepository"
+
+          $param = @{
+            LandingZonePath = $env:landingZonePath
+            SolutionPath    = $env:solutionPath
+          }
+          & "$($env:actionPath)/src/Deploy-GitHubRepository.ps1" @param
+
+          echo "::endgroup::"
+
+          #* Deploy-AzureLandingZone.ps1
+          echo "::group::Deploy-AzureLandingZone"
+
+          $param = @{
+            LandingZonePath = $env:landingZonePath
+            ArchetypesPath  = $env:archetypesPath
+            SolutionPath    = $env:solutionPath
+          }
+          & "$($env:actionPath)/src/Deploy-AzureLandingZone.ps1" @param
+
+          echo "::endgroup::"
+
+          #* Remove-AzureLandingZone.ps1
+          echo "::group::Remove-AzureLandingZone"
+
+          $param = @{
+            LandingZonePath = $env:landingZonePath
+            ArchetypesPath  = $env:archetypesPath
+            SolutionPath    = $env:solutionPath
+          }
+          & "$($env:actionPath)/src/Remove-AzureLandingZone.ps1" @param
+
+          echo "::endgroup::"
+
+          #* Remove-GitHubRepository.ps1
+          echo "::group::Remove-GitHubRepository"
+
+          $param = @{
+            LandingZonePath                = $env:landingZonePath
+            SolutionPath                   = $env:solutionPath
+          }
+          & "$($env:actionPath)/src/Remove-GitHubRepository.ps1" @param
+
+          echo "::endgroup::"
+
+          #* Move-LandingZoneDirectory.ps1
+          echo "::group::Move-LandingZoneDirectory"
+
+          $param = @{
+            LandingZonePath                = $env:landingZonePath
+            RootLandingZonesPath           = $env:rootLandingZonesPath
+            DecommissionedLandingZonesPath = $env:decommissionedLandingZonesPath
+            SolutionPath                   = $env:solutionPath
+          }
+          & "$($env:actionPath)/src/Move-LandingZoneDirectory.ps1" @param
+
+          echo "::endgroup::"
