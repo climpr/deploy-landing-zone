@@ -100,10 +100,6 @@ if ($shouldBeMoved -and $moveSucceeded) {
     git stash save --keep-index --include-untracked | Out-Null
     git commit -m "[skip ci] Move Landing Zone to correct root directory. [$relativeLandingZonePath] to [$targetPath]"
     git push -q
-    if ($LASTEXITCODE) {
-        Write-Warning "Unable to push changes!"
-        exit 1
-    }
 }
 else {
     Write-Host "Skipping. Landing Zone directory already located in the correct root directory."
