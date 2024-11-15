@@ -188,21 +188,16 @@ if (!$lzConfig.decommissioned) {
     ###* Push local Landing Zone config changes
     ##################################
     #region
-    Write-host "Push local Landing ZOne config changes"
+    Write-host "Push local Landing Zone config changes."
 
     $lzConfigPSObject | ConvertTo-Json -Depth 10 | Out-File $lzFile.FullName -NoNewline
     $lzFileChanged = [bool](git diff --name-only $lzFile.FullName)
     if ($lzFileChanged) {
         git add $lzFile.FullName
-        Write-Host "Updating ($lzFile.Name) file."
         git pull -q
         git stash save --keep-index --include-untracked | Out-Null
         git commit -m "[skip ci] Update ($lzFile.Name) file"
         git push -q
-        if ($LASTEXITCODE) {
-            Write-Warning "Unable to push changes!"
-            exit 1
-        }
     }
     else {
         Write-Host "Skipping. $($lzFile.Name) file up to date in repository."
