@@ -40,13 +40,14 @@ $repoInfo = gh repo view $org/$repo --json "name,isArchived" | ConvertFrom-Json
 $failedEnvironmentOperations = @()
 
 if ($repoInfo) {
-    Write-Host "Found GitHub repo '$repo'"
+    Write-Host "Found GitHub repo '$repo'."
 
     ##################################
     ###* Processing environments
     ##################################
     #region
-    Write-Host "Processing environments"
+
+    Write-Host "Processing environments."
 
     #* Process Environments
     foreach ($environment in $lzConfig.environments) {
@@ -56,17 +57,35 @@ if ($repoInfo) {
         ###* Processing environment
         ##################################
         #region
-        Write-Host "Processing environment: $($environmentName)"
+
+        Write-Host "Processing environment: $($environmentName)."
 
         if ($environment.decommissioned) {
+            #* Checking for existing environments
             try {
-                Invoke-GitHubCliApiMethod -Method "DELETE" -Uri "/repos/$org/$repo/environments/$environmentName"
-                Write-Host "[$environmentName] Successfully deleted GitHub environment."
+                Write-Debug "Checking if environment should be deleted."
+                $currentEnvironments = Invoke-GitHubCliApiMethod -Method "GET" -Uri "/repos/$org/$repo/environments"
+
+                if ($currentEnvironments.environments.name -contains $environmentName) {
+                    #* Deleting environment
+                    try {
+                        Invoke-GitHubCliApiMethod -Method "DELETE" -Uri "/repos/$org/$repo/environments/$environmentName"
+                        Write-Host "[$environmentName] Successfully deleted GitHub environment."
+                    }
+                    catch {
+                        $failedEnvironmentOperations += $environmentName
+                        Write-Error "[$environmentName] Failed to delete GitHub environment. GitHub Api response: $($_.Exception)"
+                    }
+                }
+                else {
+                    Write-Host "[$environmentName] Skipped. Github environment already deleted."
+                }
             }
             catch {
                 $failedEnvironmentOperations += $environmentName
-                Write-Error "[$environmentName] Unable to delete GitHub environment file. GitHub Api response: $($_.Exception)"
+                Write-Error "[$environmentName] Failed to delete GitHub environment. GitHub Api response: $($_.Exception)"
             }
+
         }
         else {
             Write-Debug "Skipped. Environment not set to decommissioned in $($lzFile.Name) file."
@@ -81,16 +100,25 @@ if ($repoInfo) {
     ###* Archive repository
     ##################################
     #region
-    Write-Host "Archive repository"
+
+    Write-Debug "Checking if repository should be archived."
 
     if ($lzConfig.decommissioned) {
         if (!$repoInfo.isArchived) {
-            Write-Host "Archiving repository."
-            gh repo archive $org/$repo --yes
+            try {
+                gh repo archive $org/$repo --yes
+                Write-Host "Successfully archived repository."
+            }
+            catch {
+                throw "Failed to archive GitHub environment. Exception: $($_.Exception)"
+            }
         }
         else {
-            Write-Debug "Repository already archived."
+            Write-Host "Skipped. Repository already archived."
         }
+    }
+    else {
+        Write-Debug "Skipped. Repository not set to decommissioned in $($lzFile.Name) file."
     }
     
     #endregion
@@ -98,5 +126,5 @@ if ($repoInfo) {
 else {
     Write-Debug "Skipped. Repository not found."
 }
-        
+
 #endregion
