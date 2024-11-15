@@ -50,7 +50,7 @@ $lzConfig = Get-Content -Path $lzFile.FullName -Encoding utf8 | ConvertFrom-Json
 ###* Processing environments
 ##################################
 #region
-Write-Host "Processing environments"
+Write-Host "Processing environments."
 
 #* Create Environments
 foreach ($environment in $lzConfig.environments) {
@@ -60,7 +60,7 @@ foreach ($environment in $lzConfig.environments) {
     ###* Processing environment
     ##################################
     #region
-    Write-Host "Processing environment: $($environmentName)"
+    Write-Host "Processing environment: $($environmentName)."
 
     #* Process Azure subscription
     if ($environment.azure) {
@@ -78,7 +78,7 @@ foreach ($environment in $lzConfig.environments) {
                 ##################################
                 #region
 
-                Write-Host "Running Decommission pre-scripts"
+                Write-Host "Running Decommission pre-scripts."
 
                 if ($subscriptionInfo) {
                     if ($subscriptionInfo.State -eq "Enabled") {
@@ -107,11 +107,24 @@ foreach ($environment in $lzConfig.environments) {
                 ##################################
                 #region
 
-                Write-Host "Disabling subscription"
+                Write-Host "Checking if Subscription should be disabled."
 
                 if ($subscriptionInfo) {
                     if ($subscriptionInfo.State -eq "Enabled") {
-                        $null = Disable-AzSubscription -Id $subscriptionId -Confirm:$false
+                        Write-Host "Subscription should be disabled."
+
+                        $param = @{
+                            Method = "POST"
+                            Uri    = "https://management.azure.com/subscriptions/$subscriptionId/providers/Microsoft.Subscription/cancel?IgnoreResourceCheck=true&api-version=2021-10-01"
+                        }
+                        $response = Invoke-AzRestMethod @param
+                        if ($response.StatusCode -in 200..299) {
+                            Write-Host "Successfully disabled subscription."
+                        }
+                        else {
+                            Write-Host ($response | Out-String)
+                            throw "Failed to disable subscription. Status code: {0}. Error: {1}" -f $response.StatusCode, $response.Content
+                        }
                     }
                     else {
                         Write-Host "Skipping. Subscription already in disabled state."
@@ -128,17 +141,19 @@ foreach ($environment in $lzConfig.environments) {
                 ##################################
                 #region
 
-                Write-Host "Moving subscription to Decommissioned Management Group"
+                Write-Host "Checking if Subscription should be moved to the Decommissioned Management Group."
 
                 if ($subscriptionInfo) {
                     if ($subscriptionInfo.State -eq "Enabled") {
                         $isInDecommissionedMg = [bool](Get-AzManagementGroupSubscription -SubscriptionId $subscriptionId -GroupName $decommissionedManagementGroupId -ErrorAction Ignore)
-                        if ($isInDecommissionedMg) {
-                            Write-Host "Skipping. Subscription is already in Decommissioned Management Group."
+                        if (!$isInDecommissionedMg) {
+                            Write-Host "Subscription should be moved to the Decommissioned Management Group."
+                
+                            $null = New-AzManagementGroupSubscription -GroupId $decommissionedManagementGroupId -SubscriptionId $subscriptionId -ErrorAction Stop
+                            Write-Host "Successfully moved Subscription to the Decommissioned Management Group."
                         }
                         else {
-                            $null = New-AzManagementGroupSubscription -GroupId $decommissionedManagementGroupId -SubscriptionId $subscriptionId -ErrorAction Stop
-                            Write-Host "Moving subscription to Decommissioned Management Group."
+                            Write-Host "Skipping. Subscription is already in Decommissioned Management Group."
                         }
                     }
                     else {
@@ -156,7 +171,7 @@ foreach ($environment in $lzConfig.environments) {
                 ##################################
                 #region
 
-                Write-Host "Running Decommission post-scripts"
+                Write-Host "Running Decommission post-scripts."
 
                 if ($subscriptionInfo) {
                     if ($subscriptionInfo.State -eq "Enabled") {
