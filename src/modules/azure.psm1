@@ -121,6 +121,7 @@ function New-LzSubscription {
 
         #* Check if subscription is associated with the Billing Account
         #* If not, it cannot be moved to the correct billing scope
+        $billingAccountId = $BillingScope.Split("/")[0..4] -join "/"
         $billingSubscriptions = @()
         $nextLink = "$($billingAccountId)/billingSubscriptions?api-version=2024-04-01&top=50"
         do {
@@ -142,7 +143,6 @@ function New-LzSubscription {
 
         #* Ensure subscription has correct invoice section
         Write-Host "- Set subscription billing invoice section"
-        $billingAccountId = $BillingScope.Split("/")[0..4] -join "/"
         $uri = "https://management.azure.com$($billingAccountId)/billingSubscriptions/$($SubscriptionId)/move?api-version=2021-10-01"
         $body = @{ destinationInvoiceSectionId = $BillingScope } | ConvertTo-Json
         $response = Invoke-AzRestMethod -Uri $uri -Method POST -Payload $body
