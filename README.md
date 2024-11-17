@@ -3,21 +3,21 @@
 <!-- TOC -->
 
 - [Climpr - Deploy Landing Zone](#climpr---deploy-landing-zone)
-        - [Goals](#goals)
-        - [Non-Goals](#non-goals)
-    - [Getting started](#getting-started)
-        - [How to use this action](#how-to-use-this-action)
-    - [Structure](#structure)
-        - [High level](#high-level)
-        - [Landing Zones](#landing-zones)
-        - [Archetypes](#archetypes)
-        - [Landing Zone definitions](#landing-zone-definitions)
+  - [Goals](#goals)
+  - [Non-Goals](#non-goals)
+  - [Getting started](#getting-started)
+    - [How to use this action](#how-to-use-this-action)
+  - [Structure](#structure)
+    - [High level](#high-level)
+    - [Landing Zones](#landing-zones)
+    - [Archetypes](#archetypes)
+    - [Landing Zone definitions](#landing-zone-definitions)
 
 <!-- /TOC -->
 
 The purpose of this solution is to provision and maintain Platform and Application Landing Zones according to the principles in [Azure Enterprise Scale Landing Zones](https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/) using Infrastructure as Code (IaC).
 
-### Goals
+## Goals
 
 - Provide self-service provisioning capabilities for new application Landing Zones
 - Support the responsibility model of the Enterprise Scale architecture is met. Granting Application Landing Zone owners as much freedom and autonomy in their Landing Zones as possible
@@ -25,7 +25,7 @@ The purpose of this solution is to provision and maintain Platform and Applicati
 - All day to day interaction should be with purely declarative code, stating `what` you want to deploy, not `how` to deploy it
 - The solution should be flexible enough to easily add support for other programming languages and/or cloud providers
 
-### Non-Goals
+## Non-Goals
 
 - Operating or maintaining the actual workloads, applications or systems contained in the landing zones themselves.
 
