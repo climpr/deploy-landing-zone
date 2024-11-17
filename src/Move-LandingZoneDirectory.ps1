@@ -41,6 +41,7 @@ $lzConfig = Get-Content -Path $lzFile.FullName -Encoding utf8 | ConvertFrom-Json
 ###* Move landing zone directory to disabled landing zones directory
 ##################################
 #region
+
 Write-Host "Move landing zone directory to disabled landing zones directory"
 
 #* Resolve relative paths to ensure consistent compares
@@ -71,6 +72,7 @@ else {
 }
 
 #* Move directory if applicable
+$moveSucceeded = $false
 if ($shouldBeMoved) {
     Write-Host "Moving Landing Zone directory to [$targetPath]"
 
@@ -81,28 +83,32 @@ if ($shouldBeMoved) {
     }
     
     #* Move directory
-    Move-Item -Path $relativeLandingZonePath -Destination $targetPath -Force
+    Move-Item -Path $relativeLandingZonePath -Destination $targetPath -Force -ErrorAction Stop
     $moveSucceeded = $?
 }
 
 #endregion
 
 ##################################
-###* Push changes to GitHub
+###* Push changes to GitHub and return
 ##################################
 #region
+
 Write-Host "Push changes to GitHub"
 
-if ($shouldBeMoved -and $moveSucceeded) {
+if ($moveSucceeded) {
     git add $relativeLandingZonePath
     git add $targetPath
     git pull -q
     git stash save --keep-index --include-untracked | Out-Null
     git commit -m "[skip ci] Move Landing Zone to correct root directory. [$relativeLandingZonePath] to [$targetPath]"
     git push -q
+    
+    return $targetPath
 }
 else {
     Write-Host "Skipping. Landing Zone directory already located in the correct root directory."
+    return $relativeLandingZonePath
 }
 
 #endregion

@@ -36,6 +36,11 @@ inputs:
     description: The token for the GitHub app that is allowed to create and update repositories in the organization.
     required: true
 
+outputs:
+  new-landing-zone-path:
+    description: The new Landing Zone directory path
+    value: ${{ steps.process-landing-zone.outputs.new-landing-zone-path }}
+
 runs:
   using: composite
   steps:
@@ -70,6 +75,7 @@ runs:
 
     - name: Process Landing Zone
       uses: azure/powershell@v2
+      id: process-landing-zone
       env:
         solutionPath: ${{ inputs.solution-path }}
         landingZonePath: ${{ inputs.landing-zone-path }}
@@ -89,7 +95,7 @@ runs:
 
           #* Set-PartnerId.ps1
           echo "::group::Set-PartnerId"
-          
+
           & "$($env:actionPath)/src/Set-PartnerId.ps1" -PartnerId "6100086"
 
           echo "::endgroup::"
@@ -149,6 +155,8 @@ runs:
             DecommissionedLandingZonesPath = $env:decommissionedLandingZonesPath
             SolutionPath                   = $env:solutionPath
           }
-          & "$($env:actionPath)/src/Move-LandingZoneDirectory.ps1" @param
+          $newLandingZonePath = & "$($env:actionPath)/src/Move-LandingZoneDirectory.ps1" @param
+
+          Write-Output "new-landing-zone-path=$newLandingZonePath" >> $env:GITHUB_OUTPUT
 
           echo "::endgroup::"
