@@ -80,20 +80,25 @@ if (!$lzConfig.decommissioned) {
 
                     if ($environment.azure.archetype -ne "no-lz") {
                         #* Create Billing Scope (Billing Profile and Invoice Section)
-                        $param = @{
-                            BillingAccountDisplayName = $environment.azure.billingAccountDisplayName ? $environment.azure.billingAccountDisplayName : $defaultBillingAccountDisplayName
-                            BillingProfileDisplayName = $environment.azure.billingProfileDisplayName
-                            InvoiceSectionDisplayName = $environment.azure.invoiceSectionDisplayName
+                        $supportsBillingScope = $environment.azure.billingProfileDisplayName -and $environment.azure.billingProfileDisplayName
+                        if ($supportsBillingScope) {
+                            $param = @{
+                                BillingAccountDisplayName = $environment.azure.billingAccountDisplayName ? $environment.azure.billingAccountDisplayName : $defaultBillingAccountDisplayName
+                                BillingProfileDisplayName = $environment.azure.billingProfileDisplayName
+                                InvoiceSectionDisplayName = $environment.azure.invoiceSectionDisplayName
+                            }
+                            $billingScope = New-BillingScope @param
                         }
-                        $billingScope = New-BillingScope @param
 
                         $param = @{
                             AliasName         = "$($lzConfig.repoName)-$($environment.name)".ToLower()
                             SubscriptionId    = $environment.azure.subscriptionId
                             SubscriptionName  = $environment.azure.subscriptionName
                             Offer             = (![string]::IsNullOrEmpty($environment.azure.offer) ? $environment.azure.offer : 'Production')
-                            BillingScope      = $billingScope
                             ManagementGroupId = $environment.azure.parentManagementGroupId
+                        }
+                        if ($supportsBillingScope) {
+                            $param.Add("BillingScope", $billingScope)
                         }
 
                         #* Create new subscription
