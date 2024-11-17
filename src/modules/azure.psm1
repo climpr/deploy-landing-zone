@@ -69,7 +69,7 @@ function New-BillingScope {
     }
 
     #* Return billing scope
-    $invoiceSection.Id -replace "^/providers/Microsoft\.Billing"
+    $invoiceSection.Id
 }
 
 function New-LzSubscription {
@@ -112,18 +112,39 @@ function New-LzSubscription {
             $subAlias = New-AzSubscriptionAlias -AliasName $AliasName -SubscriptionId $SubscriptionId
         }
         catch {
-            Write-Warning -Message "Failed to create subAlias, assuming it already exists. [$($_.ToString())]"
+            Write-Warning -Message "Failed to create Subscription Alias resource, assuming it already exists. [$($_.ToString())]"
         }
 
-        #* Ensure subscription is under correct MG
+        #* Ensure subscription is under correct Management Group
         Write-Host "- Set subscription parent management group Id [$ManagementGroupId]"
         $null = New-AzManagementGroupSubscription -GroupId $ManagementGroupId -SubscriptionId $SubscriptionId
 
+        #* Check if subscription is associated with the Billing Account
+        #* If not, it cannot be moved to the correct billing scope
+        $billingSubscriptions = @()
+        $nextLink = "$($billingAccountId)/billingSubscriptions?api-version=2024-04-01&top=50"
+        do {
+            $response = Invoke-AzRestMethod "https://management.azure.com$($nextLink)"
+            if ($response.StatusCode -notin 200..299) {
+                Write-Host ($response | Out-String)
+                throw "Failed to get list of current Billing Account subscriptions. Status code: {0}. Error: {1}" -f $response.StatusCode, $response.Content
+            }
+            $content = $response.Content | ConvertFrom-Json
+            $nextLink = $content.nextLink
+            foreach ($billingSubscription in $content.value) {
+                $billingSubscriptions += $billingSubscription
+            }
+        } while ($nextLink)
+
+        if ($billingSubscriptions.properties.subscriptionId -notcontains $SubscriptionId) {
+            throw "Subscription either doesn't exist or is not associated with the correct Billing Account. The subscription must exist and be associated with the Billing Account as a 'Billing Subscription'."
+        }
+
         #* Ensure subscription has correct invoice section
         Write-Host "- Set subscription billing invoice section"
-        $billingAccountId = $billingScope.Split("/billingAccounts/")[1].Split("/billingProfiles/")[0]
-        $uri = "https://management.azure.com/providers/Microsoft.Billing/billingAccounts/$($billingAccountId)/billingSubscriptions/$($SubscriptionId)/move?api-version=2021-10-01"
-        $body = @{ destinationInvoiceSectionId = "/providers/Microsoft.Billing$($billingScope)" } | ConvertTo-Json
+        $billingAccountId = $BillingScope.Split("/")[0..4] -join "/"
+        $uri = "https://management.azure.com$($billingAccountId)/billingSubscriptions/$($SubscriptionId)/move?api-version=2021-10-01"
+        $body = @{ destinationInvoiceSectionId = $BillingScope } | ConvertTo-Json
         $response = Invoke-AzRestMethod -Uri $uri -Method POST -Payload $body
         if ($response.StatusCode -notin 200..299) {
             Write-Host ($response | Out-String)
@@ -139,7 +160,7 @@ function New-LzSubscription {
             -AliasName $AliasName `
             -DisplayName $SubscriptionName `
             -ManagementGroupId "/providers/Microsoft.Management/managementGroups/$ManagementGroupId" `
-            -BillingScope $BillingScope `
+            -BillingScope ($BillingScope -replace "^/providers/Microsoft\.Billing") `
             -Workload $Offer
 
         $subId = $subAlias.SubscriptionId
