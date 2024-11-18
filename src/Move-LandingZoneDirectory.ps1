@@ -99,8 +99,6 @@ Write-Host "Push changes to Git"
 if ($moveSucceeded) {
     git add $relativeLandingZonePath
     git add $targetPath
-    git pull -q
-    git stash save --keep-index --include-untracked | Out-Null
     git commit -qm "[skip ci] Move Landing Zone to correct root directory. [$relativeLandingZonePath] to [$targetPath]"
     git push -q
     if ($?) {
