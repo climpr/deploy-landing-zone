@@ -80,7 +80,7 @@ if (!$lzConfig.decommissioned) {
 
                     if ($environment.azure.archetype -ne "no-lz") {
                         #* Create Billing Scope (Billing Profile and Invoice Section)
-                        $supportsBillingScope = $environment.azure.billingProfileDisplayName -and $environment.azure.billingProfileDisplayName
+                        $supportsBillingScope = $environment.azure.billingProfileDisplayName -and $environment.azure.invoiceSectionDisplayName
                         if ($supportsBillingScope) {
                             $param = @{
                                 BillingAccountDisplayName = $environment.azure.billingAccountDisplayName ? $environment.azure.billingAccountDisplayName : $defaultBillingAccountDisplayName
