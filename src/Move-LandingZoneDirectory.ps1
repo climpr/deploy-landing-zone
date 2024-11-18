@@ -90,21 +90,25 @@ if ($shouldBeMoved) {
 #endregion
 
 ##################################
-###* Push changes to GitHub and return
+###* Push changes to Git and return
 ##################################
 #region
 
-Write-Host "Push changes to GitHub"
+Write-Host "Push changes to Git"
 
 if ($moveSucceeded) {
     git add $relativeLandingZonePath
     git add $targetPath
     git pull -q
     git stash save --keep-index --include-untracked | Out-Null
-    git commit -m "[skip ci] Move Landing Zone to correct root directory. [$relativeLandingZonePath] to [$targetPath]"
+    git commit -qm "[skip ci] Move Landing Zone to correct root directory. [$relativeLandingZonePath] to [$targetPath]"
     git push -q
-    
-    return $targetPath
+    if ($?) {
+        return $targetPath
+    }
+    else {
+        throw "Failed to push changes."
+    }
 }
 else {
     Write-Host "Skipping. Landing Zone directory already located in the correct root directory."
