@@ -76,40 +76,53 @@ if (!$lzConfig.decommissioned) {
                     ###* Create Billing Scope
                     ##################################
                     #region
+
+                    $hasBillingScope = ![string]::IsNullOrWhiteSpace($environment.azure.billingScope)
+                    $newBillingScope = ![string]::IsNullOrWhiteSpace($environment.azure.billingProfileDisplayName) -and ![string]::IsNullOrWhiteSpace($environment.azure.invoiceSectionDisplayName)
+                    $hasSubscriptionId = ![string]::IsNullOrWhiteSpace($environment.azure.subscriptionId)
+
+                    if ($hasBillingScope) {
+                        #* Associate to existing Billing Scope
+                        $billingScope = $environment.azure.billingScope
+                    }
+                    elseif ($newBillingScope) {
+                        #* Create Billing Scope (Billing Profile and Invoice Section)
+                        $param = @{
+                            BillingAccountDisplayName = $environment.azure.billingAccountDisplayName ? $environment.azure.billingAccountDisplayName : $defaultBillingAccountDisplayName
+                            BillingProfileDisplayName = $environment.azure.billingProfileDisplayName
+                            InvoiceSectionDisplayName = $environment.azure.invoiceSectionDisplayName
+                        }
+                        $billingScope = New-BillingScope @param
+                    }
+                    elseif ($hasSubscriptionId) {
+                        #* Associate existing Subscription
+                        $billingScope = $null
+                    }
+                    else {
+                        throw "Unable to create new subscription or associate existing subscription to Landing Zone. Either 'billingScope', 'billingProfileDisplayName' and 'invoiceSectionDisplayName' or 'subscriptionId' needs to be specified."
+                    }
+
                     Write-Host "Create Billing Scope: $($environmentName)"
 
-                    if ($environment.azure.archetype -ne "no-lz") {
-                        #* Create Billing Scope (Billing Profile and Invoice Section)
-                        $supportsBillingScope = $environment.azure.billingProfileDisplayName -and $environment.azure.invoiceSectionDisplayName
-                        if ($supportsBillingScope) {
-                            $param = @{
-                                BillingAccountDisplayName = $environment.azure.billingAccountDisplayName ? $environment.azure.billingAccountDisplayName : $defaultBillingAccountDisplayName
-                                BillingProfileDisplayName = $environment.azure.billingProfileDisplayName
-                                InvoiceSectionDisplayName = $environment.azure.invoiceSectionDisplayName
-                            }
-                            $billingScope = New-BillingScope @param
-                        }
+                    $param = @{
+                        AliasName         = "$($lzConfig.repoName)-$($environment.name)".ToLower()
+                        SubscriptionId    = $environment.azure.subscriptionId
+                        SubscriptionName  = $environment.azure.subscriptionName
+                        Offer             = (![string]::IsNullOrEmpty($environment.azure.offer) ? $environment.azure.offer : 'Production')
+                        ManagementGroupId = $environment.azure.parentManagementGroupId
+                    }
+                    if ($null -ne $billingScope) {
+                        $param.Add("BillingScope", $billingScope)
+                    }
 
-                        $param = @{
-                            AliasName         = "$($lzConfig.repoName)-$($environment.name)".ToLower()
-                            SubscriptionId    = $environment.azure.subscriptionId
-                            SubscriptionName  = $environment.azure.subscriptionName
-                            Offer             = (![string]::IsNullOrEmpty($environment.azure.offer) ? $environment.azure.offer : 'Production')
-                            ManagementGroupId = $environment.azure.parentManagementGroupId
-                        }
-                        if ($supportsBillingScope) {
-                            $param.Add("BillingScope", $billingScope)
-                        }
+                    #* Create new subscription
+                    $subId = New-LzSubscription @param
 
-                        #* Create new subscription
-                        $subId = New-LzSubscription @param
-
-                        #* Update Landing Zone config objects with subscription Id
-                        $environment.azure.subscriptionId = $subId
-                        $environmentPSObject = $lzConfigPSObject.environments | Where-Object { $_.name -eq $environmentName }
-                        if ($environmentPSObject.azure.subscriptionId -ne $subId) {
-                            $environmentPSObject.azure | Add-Member -MemberType NoteProperty -Name "subscriptionId" -Value $subId -Force
-                        }
+                    #* Update Landing Zone config objects with subscription Id
+                    $environment.azure.subscriptionId = $subId
+                    $environmentPSObject = $lzConfigPSObject.environments | Where-Object { $_.name -eq $environmentName }
+                    if ($environmentPSObject.azure.subscriptionId -ne $subId) {
+                        $environmentPSObject.azure | Add-Member -MemberType NoteProperty -Name "subscriptionId" -Value $subId -Force
                     }
 
                     #endregion
