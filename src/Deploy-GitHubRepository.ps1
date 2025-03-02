@@ -623,7 +623,7 @@ if (!$lzConfig.decommissioned) {
         $branchPolicyPatterns = Join-Arrays -Array1 $branchPolicyPatterns -Array2 $environment.branchPolicyPatterns
 
         #* Remove patterns not present in Landing Zone config file
-        $currentPatterns = Invoke-GitHubCliApiMethod -Method "GET" -Uri "/repos/$org/$repo/environments/$environmentName/deployment-branch-policies"
+        $currentPatterns = Invoke-GitHubCliApiMethod -Method "GET" -Uri "/repos/$org/$repo/environments/$environmentName/deployment-branch-policies" -ErrorAction Ignore 2>$null
         foreach ($pattern in $currentPatterns.branch_policies) {
             $shallExists = $branchPolicyPatterns | Where-Object { $_.name -eq $pattern.name -and $_.type -eq $pattern.type }
             if (!$shallExists) {
