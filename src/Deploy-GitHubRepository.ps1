@@ -666,6 +666,13 @@ if (!$lzConfig.decommissioned) {
             Write-Host "  - Skipping. Run protection property not set or set to 'null' in both Landing Zone configuration file and climprconfig file."
         }
 
+        #* Check if environment exists
+        $currentEnvironment = Invoke-GitHubCliApiMethod -Method "GET" -Uri "/repos/$org/$repo/environments/$environmentName" -ErrorAction Ignore 2>$null
+        if (!$currentEnvironment -and ($null -eq $config -or $config -eq "ignore")) {
+            $config = "default"
+            Write-Host "  - Environment not found. Creating environment once with default settings."
+        }
+        
         #* Calculate configuration
         $configure = $false
         switch ($config) {
