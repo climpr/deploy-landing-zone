@@ -398,22 +398,50 @@ function New-LzDeployment {
     Invoke-LzScripts @param
 
     #* Run deployment
-    $param = @{
-        Name                  = $lzName
-        Location              = $Location
-        TemplateFile          = "$ArchetypePath/main.bicep"
-        TemplateParameterFile = $ParameterFile
-        WarningAction         = "SilentlyContinue"
-        ErrorAction           = "Continue"
-        Verbose               = $true
+    if (!$LandingZoneConfig.deploymentType -or $LandingZoneConfig.deploymentType -eq "Deployment") {
+        $param = @{
+            Name                  = $lzName
+            Location              = $Location
+            TemplateParameterFile = $ParameterFile
+            WarningAction         = "SilentlyContinue"
+            ErrorAction           = "Continue"
+            Verbose               = $true
+        }
+
+        Write-Host "- Deploying resources for [$lzName]"
+        $azContext = Get-AzContext
+        if ($azContext.Subscription.Id -ne $SubscriptionId) {
+            $azContext = Set-AzContext -SubscriptionId $SubscriptionId -ErrorAction Stop
+        }
+        $ret = New-AzSubscriptionDeployment @param
+    }
+    elseif ($LandingZoneConfig.deploymentType -eq "Stack") {
+        $param = @{
+            Name                  = $lzName
+            Location              = $Location
+            TemplateParameterFile = $ParameterFile
+            WarningAction         = "SilentlyContinue"
+            ErrorAction           = "Continue"
+            Verbose               = $true
+        }
+
+        $ret = New-AzManagementGroupDeploymentStack `
+            -ManagementGroupId "alpha-sandbox" `
+            -DeploymentSubscriptionId "33c947bb-9f4c-403e-9823-df022b662e16" `
+            -Description "Test stack for Audun Akse" `
+            -ActionOnUnmanage DeleteAll `
+            -DenySettingsMode DenyDelete `
+            -DenySettingsApplyToChildScopes `
+            -DenySettingsExcludedPrincipal "47c403a8-eada-4739-b6d2-737715aa93ac" `
+            -TemplateParameterFile "lz-management/landing-zones/sandbox/alpha-sandbox-audun-akse/sandbox.bicepparam" `
+            -Confirm:$false `
+            -Force
+    }
+    else {
+        throw "Failed to deploy [$lzName]. Unknown deploymentType. Must be empty, 'Deployment' or 'Stack'. Current deploymentType: [$($LandingZoneConfig.deploymentType)]"
     }
 
-    Write-Host "- Deploying resources for [$lzName]"
-    $azContext = Get-AzContext
-    if ($azContext.Subscription.Id -ne $SubscriptionId) {
-        $azContext = Set-AzContext -SubscriptionId $SubscriptionId -ErrorAction Stop
-    }
-    $ret = New-AzSubscriptionDeployment @param
+    #* Handle errors
     if (!$ret -or $ret.ProvisioningState -ne "Succeeded") {
         throw "Failed to deploy resources for [$lzName]"
     }
