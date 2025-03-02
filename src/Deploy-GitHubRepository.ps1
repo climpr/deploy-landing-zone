@@ -486,43 +486,58 @@ if (!$lzConfig.decommissioned) {
     #endregion
 
     ##################################
-    ###* Set Branch Protection
+    ###* Set branch protection rule for the default branch
     ##################################
     #region
-    Write-Host "Set Branch Protection"
+    Write-Host "Set branch protection rule for the default branch [$defaultBranch]."
 
-    #* Get default branchProtection configuration
-    $branchProtection = $defaultRepositoryConfig.branchProtection
-    $body = Join-HashTable -Hashtable1 $branchProtection -Hashtable2 $lzConfig.branchProtection
-
-    if ($body -and $body.Count -eq 0) {
-        #* No branch protection settings specified in the Landing Zone configuration file
-        Write-Host "No branch protection setting specified for the default branch in the Landing Zone configuration file." 
-
-        #* Check if there is already a branch protection rule enabled for the default branch
-        $currentBranchProtection = Invoke-GitHubCliApiMethod -Method "GET" -Uri "/repos/$org/$repo/branches/$defaultBranch/protection" -ErrorAction Ignore 2>$null
-        if ($currentBranchProtection) {
-            #* Delete branch protection rule for default branch
-            try {
-                Invoke-GitHubCliApiMethod -Method "DELETE" -Uri "/repos/$org/$repo/branches/$defaultBranch/protection" | Out-Null
-                Write-Host "Deleted branch protection rule on branch [$defaultBranch] on repository [$org/$repo]." 
-            }
-            catch {
-                Write-Error "Failed to delete branch protection rule on branch [$defaultBranch] on repository [$org/$repo]. GitHub Api response: $($_.Exception)" 
-            }
-        }
-        else {
-            Write-Host "No branch protection rule found for [$defaultBranch] on repository [$org/$repo]." 
-        }
+    #* Determine configuration source
+    $config = $null
+    if ($null -ne $lzConfig.branchProtection) {
+        Write-Host "  - Branch protection rule property determined by Landing Zone configuration file."
+        $config = $lzConfig.branchProtection
+    }
+    elseif ($null -ne $defaultRepositoryConfig.branchProtection) {
+        Write-Host "  - Branch protection rule property determined by climprconfig file. Property not set in Landing Zone configuration file."
+        $config = $defaultRepositoryConfig.branchProtection
     }
     else {
-        #* Enable branch protection rule for default branch
-        try {
-            Invoke-GitHubCliApiMethod -Method "PUT" -Uri "/repos/$org/$repo/branches/$defaultBranch/protection" -Body ($body | ConvertTo-Json) | Out-Null
-            Write-Host "Branch protection enabled on branch [$defaultBranch] on repository [$org/$repo]." 
+        Write-Host "  - Skipping. Branch protection rule property not set or set to 'null' in both Landing Zone configuration file and climprconfig file."
+    }
+
+    #* Configure setting
+    switch ($config) {
+        $null {}
+        "ignore" {
+            Write-Host "  - Skipping. Branch protection rule property is 'ignore'."
         }
-        catch {
-            Write-Error "Failed to enable branch protection on branch [$defaultBranch] on repository [$org/$repo]. GitHub Api response: $($_.Exception)" 
+        "default" {
+            Write-Host "  - Branch protection rule property is 'default'. Default settings for GitHub is to not implement any branch protection rules."
+            #* Check if there is already a branch protection rule enabled for the default branch
+            $currentBranchProtection = Invoke-GitHubCliApiMethod -Method "GET" -Uri "/repos/$org/$repo/branches/$defaultBranch/protection" -ErrorAction Ignore 2>$null
+            if ($currentBranchProtection) {
+                #* Delete branch protection rule for default branch
+                try {
+                    Invoke-GitHubCliApiMethod -Method "DELETE" -Uri "/repos/$org/$repo/branches/$defaultBranch/protection" | Out-Null
+                    Write-Host "  - Deleted branch protection rule on branch [$defaultBranch] on repository [$org/$repo]." 
+                }
+                catch {
+                    Write-Error "Failed to delete branch protection rule on branch [$defaultBranch] on repository [$org/$repo]. GitHub Api response: $($_.Exception)" 
+                }
+            }
+            else {
+                Write-Host "  - No branch protection rule found for [$defaultBranch] on repository [$org/$repo]." 
+            }
+        }
+        default {
+            Write-Host "  - Branch protection rule property is: $($config | ConvertTo-Json -Depth 10)"
+            try {
+                Invoke-GitHubCliApiMethod -Method "PUT" -Uri "/repos/$org/$repo/branches/$defaultBranch/protection" -Body ($body | ConvertTo-Json) | Out-Null
+                Write-Host "  - Branch protection enabled on branch [$defaultBranch] on repository [$org/$repo]." 
+            }
+            catch {
+                Write-Error "Failed to enable branch protection on branch [$defaultBranch] on repository [$org/$repo]. GitHub Api response: $($_.Exception)" 
+            }
         }
     }
 
@@ -532,40 +547,85 @@ if (!$lzConfig.decommissioned) {
     ###* Update CODEOWNERS file
     ##################################
     #region
-    Write-Host "Update Code Owners file"
+    Write-Host "Update CODEOWNERS file for default branch [$defaultBranch]"
 
-    if ($lzConfig.codeOwners) {
-        $body = @{}
-        $update = $true
-        
-        #* Get content
-        $content = $lzConfig.codeOwners | Out-String
-        
-        #* Check if CODEOWNERS file already exists
-        $ghFile = Invoke-GitHubCliApiMethod -Method "GET" -Uri "/repos/$org/$repo/contents/.github/CODEOWNERS" -ErrorAction Ignore 2>$null
-        if ($ghFile) {
-            $currentContent = Invoke-RestMethod -Uri $ghFile.download_url
-            $body += @{ sha = $ghFile.sha }
-            $update = $content -cne $currentContent
+    #* Determine configuration source
+    $config = $null
+    if ($null -ne $lzConfig.codeOwners) {
+        Write-Host "  - CODEOWNERS file property determined by Landing Zone configuration file."
+        $config = $lzConfig.codeOwners
+    }
+    elseif ($null -ne $defaultRepositoryConfig.codeOwners) {
+        Write-Host "  - CODEOWNERS file property determined by climprconfig file. Property not set in Landing Zone configuration file."
+        $config = $defaultRepositoryConfig.codeOwners
+    }
+    else {
+        Write-Host "  - Skipping. CODEOWNERS file property not set or set to 'null' in both Landing Zone configuration file and climprconfig file."
+    }
+
+    #* Configure setting
+    switch ($config) {
+        $null {}
+        "ignore" {
+            Write-Host "  - Skipping. CODEOWNERS file property is 'ignore'."
         }
+        "default" {
+            Write-Host "  - CODEOWNERS file property is 'default'. Default settings for GitHub is to not implement any CODEOWNERS file."
 
-        #* Update file
-        if ($update) {
-            try {
-                $body += @{
-                    message = "[skip ci] Update CODEOWNERS file"
-                    content = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($content))
+            #* Check if CODEOWNERS file already exists in the default branch
+            $ghFile = Invoke-GitHubCliApiMethod -Method "GET" -Uri "/repos/$org/$repo/contents/.github/CODEOWNERS" -ErrorAction Ignore 2>$null
+            
+            #* Delete file
+            if ($ghFile) {
+                try {
+                    $body = @{
+                        message = "[skip ci] Delete CODEOWNERS file"
+                        sha     = $ghFile.sha
+                    }
+                    Invoke-GitHubCliApiMethod -Method "DELETE" -Uri "/repos/$org/$repo/contents/.github/CODEOWNERS" -Body ($body | ConvertTo-Json) | Out-Null
                 }
-
-                Invoke-GitHubCliApiMethod -Method "PUT" -Uri "/repos/$org/$repo/contents/.github/CODEOWNERS" -Body ($body | ConvertTo-Json) | Out-Null
-                Write-Host "[$defaultBranch] CODEOWNERS file created/updated."
+                catch {
+                    Write-Error "Unable to delete CODEOWNERS file on default branch [$defaultBranch]. GitHub Api response: $($_.Exception)"
+                }
             }
-            catch {
-                Write-Error "[$defaultBranch] Unable to create/update CODEOWNERS file. GitHub Api response: $($_.Exception)"
+            else {
+                Write-Host "  - No CODEOWNERS file found on default branch [$defaultBranch]."
             }
         }
-        else {
-            Write-Host "[$defaultBranch] CODEOWNERS file already up to date."
+        default {
+            Write-Host "  - CODEOWNERS file is: $($config | ConvertTo-Json -Depth 10)"
+            $body = @{}
+            $update = $true
+        
+            #* Get content
+            $content = $lzConfig.codeOwners | Out-String
+        
+            #* Check if CODEOWNERS file already exists
+            $ghFile = Invoke-GitHubCliApiMethod -Method "GET" -Uri "/repos/$org/$repo/contents/.github/CODEOWNERS" -ErrorAction Ignore 2>$null
+            if ($ghFile) {
+                $currentContent = Invoke-RestMethod -Uri $ghFile.download_url
+                $body += @{ sha = $ghFile.sha }
+                $update = $content -cne $currentContent
+            }
+
+            #* Update file
+            if ($update) {
+                try {
+                    $body += @{
+                        message = "[skip ci] Update CODEOWNERS file"
+                        content = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($content))
+                    }
+
+                    Invoke-GitHubCliApiMethod -Method "PUT" -Uri "/repos/$org/$repo/contents/.github/CODEOWNERS" -Body ($body | ConvertTo-Json) | Out-Null
+                    Write-Host "  - CODEOWNERS file created/updated on default branch [$defaultBranch]."
+                }
+                catch {
+                    Write-Error "Unable to create/update CODEOWNERS file on default branch [$defaultBranch]. GitHub Api response: $($_.Exception)"
+                }
+            }
+            else {
+                Write-Host "  - CODEOWNERS file already up to date on default branch [$defaultBranch]."
+            }
         }
     }
 
@@ -590,25 +650,58 @@ if (!$lzConfig.decommissioned) {
         ###* Create environment
         ##################################
         #region
-        Write-Host "Create environment: $($environmentName)"
+        Write-Host "Create environment with protection rules: $($environmentName)"
 
-        #* Get default runProtection configuration
-        $githubDefaults = @{
-            reviewers                = $null
-            wait_timer               = 0
-            deployment_branch_policy = $null
-            prevent_self_review      = $false
+        #* Determine configuration source
+        $config = $null
+        if ($null -ne $environment.runProtection) {
+            Write-Host "  - Protection rule property determined by Landing Zone configuration file."
+            $config = $environment.runProtection
         }
-        $runProtection = Join-HashTable -Hashtable1 $githubDefaults -Hashtable2 $defaultRepositoryConfig.runProtection
-        $body = Join-HashTable -Hashtable1 $runProtection -Hashtable2 $environment.runProtection
+        elseif ($null -ne $defaultRepositoryConfig.runProtection) {
+            Write-Host "  - Run protection property determined by climprconfig file. Property not set in Landing Zone configuration file."
+            $config = $defaultRepositoryConfig.runProtection
+        }
+        else {
+            Write-Host "  - Skipping. Run protection property not set or set to 'null' in both Landing Zone configuration file and climprconfig file."
+        }
 
-        try {
-            Invoke-GitHubCliApiMethod -Method "PUT" -Uri "/repos/$org/$repo/environments/$environmentName" -Body ($body | ConvertTo-Json) | Out-Null
-            Write-Host "Run protection settings configured on environment [$environmentName] on repository [$org/$repo]." 
+        #* Calculate configuration
+        $configure = $false
+        switch ($config) {
+            $null {}
+            "ignore" {
+                Write-Host "  - Skipping. Run protection property is 'ignore'."
+            }
+            "default" {
+                $config = @{
+                    reviewers                = $null
+                    wait_timer               = 0
+                    deployment_branch_policy = $null
+                    prevent_self_review      = $false
+                }
+                Write-Host "  - Run protection property is 'default'. Default settings for GitHub is: $($config | ConvertTo-Json -Depth 10)."
+                $configure = $true
+            }
+            default {
+                Write-Host "  - Run protection property is: $($config | ConvertTo-Json -Depth 10)"
+                $configure = $true
+            }
         }
-        catch {
-            Write-Error "Failed to configure run protection settings on environment [$environmentName] on repository [$org/$repo]. GitHub Api response: $($_.Exception)" 
+
+        #* Configure setting
+        if ($configure) {
+            try {
+                Invoke-GitHubCliApiMethod -Method "PUT" -Uri "/repos/$org/$repo/environments/$environmentName" -Body ($config | ConvertTo-Json) | Out-Null
+                Write-Host "  - Run protection settings configured on environment [$environmentName] on repository [$org/$repo]." 
+            }
+            catch {
+                Write-Error "Failed to configure run protection settings on environment [$environmentName] on repository [$org/$repo]. GitHub Api response: $($_.Exception)" 
+            }
         }
+        
+        #* Store config for next step
+        $protectionRulesConfig = $config
 
         #endregion
 
@@ -618,38 +711,72 @@ if (!$lzConfig.decommissioned) {
         #region
         Write-Host "Create environment branch policy patterns: $($environmentName)"
 
-        #* Get default branchPolicyPatterns configuration
-        $branchPolicyPatterns = $defaultRepositoryConfig.branchPolicyPatterns
-        $branchPolicyPatterns = Join-Arrays -Array1 $branchPolicyPatterns -Array2 $environment.branchPolicyPatterns
+        #* Determine configuration source
+        $config = $null
+        if ($protectionRulesConfig.deployment_branch_policy.custom_branch_policies -ne $true) {
+            Write-Host "  - Skipping. Branch policy patterns can only be applied when the environment protection rule deployment_branch_policy.custom_branch_policies is set to 'true'."
+        }
+        elseif ($null -ne $environment.runProtection) {
+            Write-Host "  - Branch policy patterns property determined by Landing Zone configuration file."
+            $config = $environment.runProtection
+        }
+        elseif ($null -ne $defaultRepositoryConfig.runProtection) {
+            Write-Host "  - Branch policy patterns property determined by climprconfig file. Property not set in Landing Zone configuration file."
+            $config = $defaultRepositoryConfig.runProtection
+        }
+        else {
+            Write-Host "  - Skipping. Branch policy patterns property not set or set to 'null' in both Landing Zone configuration file and climprconfig file."
+        }
 
-        #* Remove patterns not present in Landing Zone config file
-        $currentPatterns = Invoke-GitHubCliApiMethod -Method "GET" -Uri "/repos/$org/$repo/environments/$environmentName/deployment-branch-policies" -ErrorAction Ignore 2>$null
-        foreach ($pattern in $currentPatterns.branch_policies) {
-            $shallExists = $branchPolicyPatterns | Where-Object { $_.name -eq $pattern.name -and $_.type -eq $pattern.type }
-            if (!$shallExists) {
-                try {
-                    Invoke-GitHubCliApiMethod -Method "DELETE" -Uri "/repos/$org/$repo/environments/$environmentName/deployment-branch-policies/$($pattern.id)" | Out-Null
-                    Write-Host "[$environmentName] environment branch policy pattern [$($pattern.name)] deleted."
-                }
-                catch {
-                    Write-Error "Failed to delete [$environmentName] environment branch policy pattern [$($pattern.name)]."
-                }
+        #* Calculate configuration
+        $configure = $false
+        switch ($config) {
+            $null {}
+            "ignore" {
+                Write-Host "  - Skipping. Branch policy patterns property is 'ignore'."
+            }
+            "default" {
+                Write-Host "  - Branch policy patterns property is 'default'. Default settings for GitHub is to not implement any branch policy patterns."
+                $config = @()
+                $configure = $true
+            }
+            default {
+                Write-Host "  - Branch policy patterns property is: $($config | ConvertTo-Json -Depth 10)"
+                $configure = $true
             }
         }
 
-        #* Create or update patterns
-        foreach ($pattern in $branchPolicyPatterns) {
-            $body = @{
-                name = $pattern.name
-                type = $pattern.type ? $pattern.type : "branch"
+        #* Configure setting
+        if ($configure) {
+            #* Remove patterns not present in the desired configuration
+            $currentPatterns = Invoke-GitHubCliApiMethod -Method "GET" -Uri "/repos/$org/$repo/environments/$environmentName/deployment-branch-policies" -ErrorAction Ignore 2>$null
+            foreach ($pattern in $currentPatterns.branch_policies) {
+                $shallExists = $branchPolicyPatterns | Where-Object { $_.name -eq $pattern.name -and $_.type -eq $pattern.type }
+                if (!$shallExists) {
+                    try {
+                        Invoke-GitHubCliApiMethod -Method "DELETE" -Uri "/repos/$org/$repo/environments/$environmentName/deployment-branch-policies/$($pattern.id)" | Out-Null
+                        Write-Host "  - [$environmentName] Deleted branch policy pattern [$($pattern.name)]."
+                    }
+                    catch {
+                        Write-Error "Failed to delete branch policy pattern [$($pattern.name)] on environment [$environmentName] on repository [$org/$repo]. GitHub Api response: $($_.Exception)"
+                    }
+                }
             }
 
-            try {
-                Invoke-GitHubCliApiMethod -Method "POST" -Uri "/repos/$org/$repo/environments/$environmentName/deployment-branch-policies" -Body ($body | ConvertTo-Json) | Out-Null
-                Write-Host "Environment branch policy pattern [$($pattern.name)] enabled on environment [$environmentName] on repository [$org/$repo]." 
-            }
-            catch {
-                Write-Error "Failed to enable environment branch policy pattern [$($pattern.name)] enabled on environment [$environmentName] on repository [$org/$repo]. GitHub Api response: $($_.Exception)" 
+            #* Create or update patterns
+            foreach ($pattern in $branchPolicyPatterns) {
+                $body = @{
+                    name = $pattern.name
+                    type = $pattern.type ? $pattern.type : "branch"
+                }
+
+                try {
+                    Invoke-GitHubCliApiMethod -Method "POST" -Uri "/repos/$org/$repo/environments/$environmentName/deployment-branch-policies" -Body ($body | ConvertTo-Json) | Out-Null
+                    Write-Host "  - [$environmentName] Created branch policy pattern [$($pattern.name)]." 
+                }
+                catch {
+                    Write-Error "Failed to create branch policy pattern [$($pattern.name)] enabled on environment [$environmentName] on repository [$org/$repo]. GitHub Api response: $($_.Exception)" 
+                }
             }
         }
 
