@@ -495,12 +495,35 @@ if (!$lzConfig.decommissioned) {
     $branchProtection = $defaultRepositoryConfig.branchProtection
     $body = Join-HashTable -Hashtable1 $branchProtection -Hashtable2 $lzConfig.branchProtection
 
-    try {
-        Invoke-GitHubCliApiMethod -Method "PUT" -Uri "/repos/$org/$repo/branches/$defaultBranch/protection" -Body ($body | ConvertTo-Json) | Out-Null
-        Write-Host "Branch protection enabled on branch [$defaultBranch] on repository [$org/$repo]." 
+    if ($body -and $body.Count -eq 0) {
+        #* No branch protection settings specified in the Landing Zone configuration file
+        Write-Host "No branch protection setting specified for the default branch in the Landing Zone configuration file." 
+
+        #* Check if there is already a branch protection rule enabled for the default branch
+        $currentBranchProtection = Invoke-GitHubCliApiMethod -Method "GET" -Uri "/repos/$org/$repo/branches/$defaultBranch/protection" -ErrorAction Ignore 2>$null
+        if ($currentBranchProtection) {
+            #* Delete branch protection rule for default branch
+            try {
+                Invoke-GitHubCliApiMethod -Method "DELETE" -Uri "/repos/$org/$repo/branches/$defaultBranch/protection" | Out-Null
+                Write-Host "Deleted branch protection rule on branch [$defaultBranch] on repository [$org/$repo]." 
+            }
+            catch {
+                Write-Error "Failed to delete branch protection rule on branch [$defaultBranch] on repository [$org/$repo]. GitHub Api response: $($_.Exception)" 
+            }
+        }
+        else {
+            Write-Host "No branch protection rule found for [$defaultBranch] on repository [$org/$repo]." 
+        }
     }
-    catch {
-        Write-Error "Failed to enable branch protection on branch [$defaultBranch] on repository [$org/$repo]. GitHub Api response: $($_.Exception)" 
+    else {
+        #* Enable branch protection rule for default branch
+        try {
+            Invoke-GitHubCliApiMethod -Method "PUT" -Uri "/repos/$org/$repo/branches/$defaultBranch/protection" -Body ($body | ConvertTo-Json) | Out-Null
+            Write-Host "Branch protection enabled on branch [$defaultBranch] on repository [$org/$repo]." 
+        }
+        catch {
+            Write-Error "Failed to enable branch protection on branch [$defaultBranch] on repository [$org/$repo]. GitHub Api response: $($_.Exception)" 
+        }
     }
 
     #endregion
@@ -570,15 +593,21 @@ if (!$lzConfig.decommissioned) {
         Write-Host "Create environment: $($environmentName)"
 
         #* Get default runProtection configuration
-        $runProtection = $defaultRepositoryConfig.runProtection
+        $githubDefaults = @{
+            reviewers                = $null
+            wait_timer               = 0
+            deployment_branch_policy = $null
+            prevent_self_review      = $false
+        }
+        $runProtection = Join-HashTable -Hashtable1 $githubDefaults -Hashtable2 $defaultRepositoryConfig.runProtection
         $body = Join-HashTable -Hashtable1 $runProtection -Hashtable2 $environment.runProtection
 
         try {
             Invoke-GitHubCliApiMethod -Method "PUT" -Uri "/repos/$org/$repo/environments/$environmentName" -Body ($body | ConvertTo-Json) | Out-Null
-            Write-Host "Run protection enabled on environment [$environmentName] on repository [$org/$repo]." 
+            Write-Host "Run protection settings configured on environment [$environmentName] on repository [$org/$repo]." 
         }
         catch {
-            Write-Error "Failed to enable run protection on environment [$environmentName] on repository [$org/$repo]. GitHub Api response: $($_.Exception)" 
+            Write-Error "Failed to configure run protection settings on environment [$environmentName] on repository [$org/$repo]. GitHub Api response: $($_.Exception)" 
         }
 
         #endregion
