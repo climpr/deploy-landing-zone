@@ -588,7 +588,7 @@ if (!$lzConfig.decommissioned) {
         }
     }
     elseif ($null -ne $config) {
-        Write-Host "- CODEOWNERS file is: $($config | ConvertTo-Json -Depth 10)"
+        Write-Host "- CODEOWNERS file is: `"$($config | ConvertTo-Json -Depth 10)`""
         $body = @{}
         $update = $true
     
