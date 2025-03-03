@@ -52,36 +52,38 @@ $org = $lzConfig.organization
 $repo = $lzConfig.repoName
 $defaultBranch = $lzConfig.defaultBranch ? $lzConfig.defaultBranch : "main"
 
-#* Find existing Git repository if any
-$repoInfo = gh repo view $org/$repo --json "name,isArchived" | ConvertFrom-Json
-if ($repoInfo) {
-    Write-Host "Found GitHub repo '$repo'"
-}
+#* MARK: Configure GitHub repository
+Write-Host "Configure GitHub repository"
 
-#* Process creation
 if (!$lzConfig.decommissioned) {
     ##################################
-    ###* Process Git Repo
+    ###* Configure GitHub repository
     ##################################
     #region
-    Write-Host "Process Git Repo"
+
+    #* Check if the repository already exists
+    Write-Host "- Check if the repository already exists '$repo'"
+    $repoInfo = gh repo view $org/$repo --json "name,isArchived" | ConvertFrom-Json
+    if ($repoInfo) {
+        Write-Host "- Found GitHub repository'$repo'"
+    }
 
     if ($repoInfo) {
         if ($repoInfo.isArchived) {
-            Write-Host "Unarchiving repository"
+            Write-Host "- Unarchiving repository"
             gh repo unarchive $org/$repo --yes
         }
     }
     else {
         if ($lzConfig.repoTemplate) {
-            Write-Host "Creating repo [$repo] from template [$($lzConfig.repoTemplate)]"
+            Write-Host "- Creating repository [$repo] from template [$($lzConfig.repoTemplate)]"
             gh repo create $org/$repo `
                 --template $lzConfig.repoTemplate `
                 --private `
                 --description ($lzConfig.repoDescription ? $lzConfig.repoDescription : 'Automatically created by Climpr.')
         }
         else {
-            Write-Host "Creating blank repo [$repo]"
+            Write-Host "- Creating blank repository [$repo]"
             gh repo create $org/$repo `
                 --add-readme `
                 --private `
@@ -92,10 +94,10 @@ if (!$lzConfig.decommissioned) {
     #endregion
 
     ##################################
-    ###* Create default team
+    ###* MARK: Configure default team
     ##################################
     #region
-    Write-Host "Create default team"
+    Write-Host "Configure default team"
 
     $defaultTeamConfig = $defaultRepositoryConfig.defaultTeam
 
@@ -114,7 +116,7 @@ if (!$lzConfig.decommissioned) {
             }
 
             Invoke-GitHubCliApiMethod -Method "PUT" -Uri "/orgs/$org/teams" -Body ($body | ConvertTo-Json) | Out-Null
-            Write-Host "Created GitHub team [$lzTeamName]." 
+            Write-Host "- Created GitHub team [$lzTeamName]." 
         }
         catch {
             Write-Error "Failed to create GitHub team [$lzTeamName]. GitHub Api response: $($_.Exception)" 
@@ -125,7 +127,7 @@ if (!$lzConfig.decommissioned) {
             $group = Get-MgGroup -Filter "DisplayName eq '$lzGroupName.'"
 
             if (!$group) {
-                Write-Host "[$lzGroupName] not found in Entra Id. Adding..."
+                Write-Host "- [$lzGroupName] not found in Entra Id. Adding..."
                 $group = New-MgGroup `
                     -DisplayName $lzGroupName `
                     -MailNickname "NotSet" `
@@ -133,10 +135,10 @@ if (!$lzConfig.decommissioned) {
                     -SecurityEnabled:$true `
                     -Description $description
         
-                Write-Host "Created $lzGroupName."
+                Write-Host "- Created $lzGroupName."
             }
             else {
-                Write-Host "Group [$lzGroupName] already exists."
+                Write-Host "- Group [$lzGroupName] already exists."
             }
 
             #TODO: Unsure if this is still required. Needs testing. 
@@ -158,14 +160,14 @@ if (!$lzConfig.decommissioned) {
             #     }
         
             #     $role = New-MgGroupAppRoleAssignment -GroupId $group.Id -BodyParameter $params
-            #     Write-Host "Role [$($role.AppRoleId)] over [$($role.PrincipalDisplayName)] granted to [$($role.ResourceDisplayName)]"
+            #     Write-Host "- Role [$($role.AppRoleId)] over [$($role.PrincipalDisplayName)] granted to [$($role.ResourceDisplayName)]"
             # }
             # else {
-            #     Write-Host "Role [$($role.AppRoleId)] over [$($role.PrincipalDisplayName)] was already granted to [$($role.ResourceDisplayName)]"
+            #     Write-Host "- Role [$($role.AppRoleId)] over [$($role.PrincipalDisplayName)] was already granted to [$($role.ResourceDisplayName)]"
             # }
 
             #* Link Github team to AD group
-            Write-Host "Checking if $lzTeamSlug is already associated with its group..."
+            Write-Host "- Checking if $lzTeamSlug is already associated with its group..."
             $groupMappings = Invoke-GitHubCliApiMethod -Method "GET" -Uri "/orgs/$org/teams/$lzTeamSlug/team-sync/group-mappings" | Select-Object -ExpandProperty "groups"
             $groupIsMapped = $groupMappings | Where-Object { $_.group_name -like $lzGroupName }
             
@@ -182,7 +184,7 @@ if (!$lzConfig.decommissioned) {
                         }
 
                         Invoke-GitHubCliApiMethod -Method "PATCH" -Uri "/orgs/$org/teams/$lzTeamSlug/team-sync/group-mappings" -Body ($body | ConvertTo-Json) | Out-Null 
-                        Write-Host "Linked Entra Id group [$lzGroupName] to GitHub team [$lzTeamSlug]." 
+                        Write-Host "- Linked Entra Id group [$lzGroupName] to GitHub team [$lzTeamSlug]." 
                     }
                     catch {
                         Write-Error "Failed to link Entra Id group [$lzGroupName] to GitHub team [$lzTeamSlug]. GitHub Api response: $($_.Exception)" 
@@ -197,11 +199,15 @@ if (!$lzConfig.decommissioned) {
 
     #endregion
 
+    #* MARK: Repository permissions
+
+    Write-Host "Configure repository permissions"
+
     ##################################
-    ###* Calculate permissions
+    ###* Calculate desired permissions
     ##################################
     #region
-    Write-Host "Calculate permissions"
+    Write-Host "- Calculate desired permissions"
     
     #* Table for converting GitHub roles to permissions
     $roleToPermissionTable = @{
@@ -222,7 +228,7 @@ if (!$lzConfig.decommissioned) {
     }
     
     #* Print result
-    Write-Host "Desired access table"
+    Write-Host "- Desired access table"
     Write-Host ($accessList | ConvertTo-Json -Depth 2)
 
     #* Create lists of explicit permissions (permissions granted through climprconfig or lzconfig)
@@ -318,7 +324,7 @@ if (!$lzConfig.decommissioned) {
     ###* Assign team permissions
     ##################################
     #region
-    Write-Host "Assign team permissions"
+    Write-Host "- Assign team permissions"
 
     #* Assign missing team permissions
     foreach ($entry in $explicitTeamsPermissions) {
@@ -331,7 +337,7 @@ if (!$lzConfig.decommissioned) {
                 }
 
                 Invoke-GitHubCliApiMethod -Method "PUT" -Uri "/orgs/$org/teams/$slug/repos/$org/$repo" -Body ($body | ConvertTo-Json) | Out-Null
-                Write-Host "Assigned [$permission] permission for team [$slug] on repository [$org/$repo]." 
+                Write-Host "  - Assigned [$permission] permission for team [$slug] on repository [$org/$repo]." 
             }
             catch {
                 Write-Error "Failed to assign [$permission] permission for team [$slug] on repository [$org/$repo]. GitHub Api response: $($_.Exception)" 
@@ -345,7 +351,7 @@ if (!$lzConfig.decommissioned) {
     ###* Assign collaborator permissions
     ##################################
     #region
-    Write-Host "Assign collaborator permissions"
+    Write-Host "- Assign collaborator permissions"
 
     #* Assign missing collaborator permissions
     foreach ($entry in $explicitCollaboratorPermissions) {
@@ -358,7 +364,7 @@ if (!$lzConfig.decommissioned) {
                 }
 
                 Invoke-GitHubCliApiMethod  -Method "PUT" -Uri "/repos/$org/$repo/collaborators/$slug" -Body ($body | ConvertTo-Json) | Out-Null
-                Write-Host "Assigned [$permission] permission for collaborator [$slug] on repository [$org/$repo]." 
+                Write-Host "  - Assigned [$permission] permission for collaborator [$slug] on repository [$org/$repo]." 
             }
             catch {
                 Write-Error "Unable to assign [$permission] permission for collaborator [$slug] on repository [$org/$repo]. GitHub Api response: $($_.Exception)" 
@@ -372,7 +378,7 @@ if (!$lzConfig.decommissioned) {
     ###* Remove team permissions
     ##################################
     #region
-    Write-Host "Remove team permissions"
+    Write-Host "- Remove team permissions"
 
     #* Remove invalid teams
     foreach ($entry in $currentTeamsPermissions) {
@@ -381,7 +387,7 @@ if (!$lzConfig.decommissioned) {
         if ($entry -notin ($explicitTeamsPermissions + $implicitTeamsPermissions)) {
             try {
                 Invoke-GitHubCliApiMethod -Method "DELETE" -Uri "/orgs/$org/teams/$slug/repos/$org/$repo" | Out-Null
-                Write-Host "Removed [$permission] permission for team [$slug] on repository [$org/$repo]." 
+                Write-Host "  - Removed [$permission] permission for team [$slug] on repository [$org/$repo]." 
             }
             catch {
                 Write-Error "Unable to remove [$permission] permission for team [$slug] on repository [$org/$repo]. GitHub Api response: $($_.Exception)" 
@@ -395,7 +401,7 @@ if (!$lzConfig.decommissioned) {
     ###* Remove collaborator permissions
     ##################################
     #region
-    Write-Host "Remove collaborator permissions"
+    Write-Host "- Remove collaborator permissions"
     
     #* Remove invalid collaborators
     foreach ($entry in $currentCollaboratorPermissions) {
@@ -404,7 +410,7 @@ if (!$lzConfig.decommissioned) {
         if ($entry -notin ($explicitCollaboratorPermissions + $implicitCollaboratorPermissions)) {
             try {
                 Invoke-GitHubCliApiMethod -Method "DELETE" -Uri "/repos/$org/$repo/collaborators/$slug" | Out-Null
-                Write-Host "Removed [$permission] permission for collaborator [$slug] on repository [$org/$repo]." 
+                Write-Host "  - Removed [$permission] permission for collaborator [$slug] on repository [$org/$repo]." 
             }
             catch {
                 Write-Error "Unable to remove [$permission] permission for collaborator [$slug] on repository [$org/$repo]. GitHub Api response: $($_.Exception)" 
@@ -415,10 +421,10 @@ if (!$lzConfig.decommissioned) {
     #endregion
 
     ##################################
-    ###* Set Repo Configuration
+    ###* MARK: Set Repository Configuration
     ##################################
     #region
-    Write-Host "Set Repo Configuration"
+    Write-Host "Set Repository Configuration"
 
     $body = @{
         default_branch         = $defaultBranch
@@ -460,7 +466,7 @@ if (!$lzConfig.decommissioned) {
     #endregion
 
     ##################################
-    ###* Set OIDC Hardening
+    ###* MARK: Set OIDC Hardening
     ##################################
     #region
     Write-Host "Set OIDC Hardening"
@@ -477,7 +483,7 @@ if (!$lzConfig.decommissioned) {
 
     try {
         Invoke-GitHubCliApiMethod -Method "PUT" -Uri "/repos/$org/$repo/actions/oidc/customization/sub" -Body ($body | ConvertTo-Json) | Out-Null
-        Write-Host "OIDC hardening applied on repository [$org/$repo]." 
+        Write-Host "- OIDC hardening applied on repository [$org/$repo]." 
     }
     catch {
         Write-Error "Failed to apply OIDC hardening on repository [$org/$repo]. GitHub Api response: $($_.Exception)" 
@@ -486,7 +492,7 @@ if (!$lzConfig.decommissioned) {
     #endregion
 
     ##################################
-    ###* Set branch protection rule for the default branch
+    ###* MARK: Set branch protection rule for the default branch
     ##################################
     #region
     Write-Host "Set branch protection rule for the default branch [$defaultBranch]."
@@ -541,7 +547,7 @@ if (!$lzConfig.decommissioned) {
     #endregion
 
     ##################################
-    ###* Set CODEOWNERS file
+    ###* MARK: Set CODEOWNERS file
     ##################################
     #region
     Write-Host "Set CODEOWNERS file for default branch [$defaultBranch]"
@@ -626,7 +632,7 @@ if (!$lzConfig.decommissioned) {
     #endregion
 
     ##################################
-    ###* Processing environments
+    ###* MARK: Processing environments
     ##################################
     #region
     Write-Host "Processing environments"
@@ -641,7 +647,7 @@ if (!$lzConfig.decommissioned) {
         }
 
         ##################################
-        ###* Create environment
+        ###* MARK: Create environment
         ##################################
         #region
         Write-Host "Create environment with protection rules: $($environmentName)"
@@ -704,7 +710,7 @@ if (!$lzConfig.decommissioned) {
         #endregion
 
         ##################################
-        ###* Set environment branch policy patterns
+        ###* MARK: Set environment branch policy patterns
         ##################################
         #region
         Write-Host "Set environment branch policy patterns: $($environmentName)"
@@ -784,5 +790,5 @@ if (!$lzConfig.decommissioned) {
     #endregion
 }
 else {
-    Write-Host "Skipping. Landing Zone is decommissioned."
+    Write-Host "- Skipping. Landing Zone is decommissioned."
 }
