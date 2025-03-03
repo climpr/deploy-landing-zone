@@ -704,10 +704,10 @@ if (!$lzConfig.decommissioned) {
         #endregion
 
         ##################################
-        ###* Create environment branch policy patterns
+        ###* Set environment branch policy patterns
         ##################################
         #region
-        Write-Host "Create environment branch policy patterns: $($environmentName)"
+        Write-Host "Set environment branch policy patterns: $($environmentName)"
 
         #* Determine configuration source
         $config = $null
