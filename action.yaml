@@ -79,7 +79,7 @@ runs:
       if: inputs.az-ps-version == 'latest'
       shell: pwsh
       run: |
-        $latestVersion = (Find-Module -Name Az).Version
+        $latestVersion = (Find-Module -Name Az -Repository PSGallery).Version
         Write-Output "latest-az-version=$latestVersion" >> $env:GITHUB_ENV
 
     - name: Process Landing Zone
