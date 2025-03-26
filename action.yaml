@@ -74,6 +74,14 @@ runs:
         # Configure az cli to use the externally installed version
         az config set bicep.use_binary_from_path=true
 
+    - name: Get Az module latest version
+      id: get-az-version
+      if: inputs.az-ps-version == 'latest'
+      shell: pwsh
+      run: |
+        $latestVersion = (Find-Module -Name Az).Version
+        Write-Output "latest-az-version=$latestVersion" >> $env:GITHUB_ENV
+
     - name: Process Landing Zone
       uses: azure/powershell@v2
       id: process-landing-zone
@@ -87,7 +95,7 @@ runs:
         GH_TOKEN: ${{ inputs.github-token }}
         debug: ${{ runner.debug }}
       with:
-        azPSVersion: ${{ inputs.az-ps-version }}
+        azPSVersion: if(equals('${{ inputs.az-ps-version }}', 'latest'), '${{ steps.get-az-version.outputs.latest-az-version }}', '${{ inputs.az-ps-version }}')
         inlineScript: |
           #* Run scripts
 
