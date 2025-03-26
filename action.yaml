@@ -51,7 +51,7 @@ runs:
         git config user.email github-actions@github.com
 
     - name: Install PS Modules
-      uses: climpr/install-psmodules@v1
+      uses: climpr/install-psmodules@feat/support-latest
       with:
         modules: |
           Az.ManagementPartner:latest
