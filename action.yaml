@@ -115,6 +115,8 @@ runs:
           #* Deploy-AzureLandingZone.ps1
           echo "::group::Deploy-AzureLandingZone"
 
+          Get-Module -ListAvailable
+
           $param = @{
             LandingZonePath = $env:landingZonePath
             ArchetypesPath  = $env:archetypesPath
