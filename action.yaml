@@ -82,92 +82,108 @@ runs:
         $latestVersion = (Find-Module -Name Az -Repository PSGallery).Version
         Write-Output "latest-az-version=$latestVersion" >> $env:GITHUB_ENV
 
-    - name: Process Landing Zone
-      uses: azure/powershell@v2
-      id: process-landing-zone
-      env:
-        solutionPath: ${{ inputs.solution-path }}
-        landingZonePath: ${{ inputs.landing-zone-path }}
-        archetypesPath: ${{ inputs.archetypes-path }}
-        rootLandingZonesPath: ${{ inputs.root-landing-zones-path }}
-        decommissionedLandingZonesPath: ${{ inputs.decommissioned-landing-zones-path }}
-        actionPath: ${{ github.action_path }}
-        GH_TOKEN: ${{ inputs.github-token }}
-        debug: ${{ runner.debug }}
-      with:
-        azPSVersion: if(equals('${{ inputs.az-ps-version }}', 'latest'), '${{ steps.get-az-version.outputs.latest-az-version }}', '${{ inputs.az-ps-version }}')
-        inlineScript: |
-          #* Run scripts
 
-          #* Set debug preference from runner configuration
-          $DebugPreference = [bool]$env:debug ? "Continue" : "SilentlyContinue"
+    - name: debug
+      shell: pwsh
+      run: |
+        Write-Output "solution-path=${{ inputs.solution-path }}"
+        Write-Output "landing-zone-path=${{ inputs.landing-zone-path }}"
+        Write-Output "archetypes-path=${{ inputs.archetypes-path }}"
+        Write-Output "root-landing-zones-path=${{ inputs.root-landing-zones-path }}"
+        Write-Output "decommissioned-landing-zones-path=${{ inputs.decommissioned-landing-zones-path }}"
+        Write-Output "action-path=${{ github.action_path }}"
+        Write-Output "GH_TOKEN=${{ inputs.github-token }}"
+        Write-Output "debug=${{ runner.debug }}"
+        Write-Output "az-ps-version=${{ inputs.az-ps-version }}"
+        Write-Output "bicep-version=${{ inputs.bicep-version }}"
+        Write-Output "latest-az-version=${{ steps.get-az-version.outputs.latest-az-version }}"
+        Write-Output "GITHUB_OUTPUT=${{ env.GITHUB_OUTPUT }}"
 
-          #* Set-PartnerId.ps1
-          echo "::group::Set-PartnerId"
+        Write-Output (Find-Module -Name Az -Repository PSGallery).Version
+    # - name: Process Landing Zone
+    #   uses: azure/powershell@v2
+    #   id: process-landing-zone
+    #   env:
+    #     solutionPath: ${{ inputs.solution-path }}
+    #     landingZonePath: ${{ inputs.landing-zone-path }}
+    #     archetypesPath: ${{ inputs.archetypes-path }}
+    #     rootLandingZonesPath: ${{ inputs.root-landing-zones-path }}
+    #     decommissionedLandingZonesPath: ${{ inputs.decommissioned-landing-zones-path }}
+    #     actionPath: ${{ github.action_path }}
+    #     GH_TOKEN: ${{ inputs.github-token }}
+    #     debug: ${{ runner.debug }}
+    #   with:
+    #     azPSVersion: if(equals('${{ inputs.az-ps-version }}', 'latest'), '${{ steps.get-az-version.outputs.latest-az-version }}', '${{ inputs.az-ps-version }}')
+    #     inlineScript: |
+    #       #* Run scripts
 
-          & "$($env:actionPath)/src/Set-PartnerId.ps1" -PartnerId "6100086"
+    #       #* Set debug preference from runner configuration
+    #       $DebugPreference = [bool]$env:debug ? "Continue" : "SilentlyContinue"
 
-          echo "::endgroup::"
+    #       #* Set-PartnerId.ps1
+    #       echo "::group::Set-PartnerId"
 
-          #* Deploy-GitHubRepository.ps1
-          echo "::group::Deploy-GitHubRepository"
+    #       & "$($env:actionPath)/src/Set-PartnerId.ps1" -PartnerId "6100086"
 
-          $param = @{
-            LandingZonePath = $env:landingZonePath
-            SolutionPath    = $env:solutionPath
-          }
-          & "$($env:actionPath)/src/Deploy-GitHubRepository.ps1" @param
+    #       echo "::endgroup::"
 
-          echo "::endgroup::"
+    #       #* Deploy-GitHubRepository.ps1
+    #       echo "::group::Deploy-GitHubRepository"
 
-          #* Deploy-AzureLandingZone.ps1
-          echo "::group::Deploy-AzureLandingZone"
+    #       $param = @{
+    #         LandingZonePath = $env:landingZonePath
+    #         SolutionPath    = $env:solutionPath
+    #       }
+    #       & "$($env:actionPath)/src/Deploy-GitHubRepository.ps1" @param
 
-          Get-Module -ListAvailable
+    #       echo "::endgroup::"
 
-          $param = @{
-            LandingZonePath = $env:landingZonePath
-            ArchetypesPath  = $env:archetypesPath
-            SolutionPath    = $env:solutionPath
-          }
-          & "$($env:actionPath)/src/Deploy-AzureLandingZone.ps1" @param
+    #       #* Deploy-AzureLandingZone.ps1
+    #       echo "::group::Deploy-AzureLandingZone"
 
-          echo "::endgroup::"
+    #       $param = @{
+    #         LandingZonePath = $env:landingZonePath
+    #         ArchetypesPath  = $env:archetypesPath
+    #         SolutionPath    = $env:solutionPath
+    #       }
+    #       & "$($env:actionPath)/src/Deploy-AzureLandingZone.ps1" @param
 
-          #* Remove-AzureLandingZone.ps1
-          echo "::group::Remove-AzureLandingZone"
+    #       echo "::endgroup::"
 
-          $param = @{
-            LandingZonePath = $env:landingZonePath
-            ArchetypesPath  = $env:archetypesPath
-            SolutionPath    = $env:solutionPath
-          }
-          & "$($env:actionPath)/src/Remove-AzureLandingZone.ps1" @param
+    #       #* Remove-AzureLandingZone.ps1
+    #       echo "::group::Remove-AzureLandingZone"
 
-          echo "::endgroup::"
+    #       $param = @{
+    #         LandingZonePath = $env:landingZonePath
+    #         ArchetypesPath  = $env:archetypesPath
+    #         SolutionPath    = $env:solutionPath
+    #       }
+    #       & "$($env:actionPath)/src/Remove-AzureLandingZone.ps1" @param
 
-          #* Remove-GitHubRepository.ps1
-          echo "::group::Remove-GitHubRepository"
+    #       echo "::endgroup::"
 
-          $param = @{
-            LandingZonePath                = $env:landingZonePath
-            SolutionPath                   = $env:solutionPath
-          }
-          & "$($env:actionPath)/src/Remove-GitHubRepository.ps1" @param
+    #       #* Remove-GitHubRepository.ps1
+    #       echo "::group::Remove-GitHubRepository"
 
-          echo "::endgroup::"
+    #       $param = @{
+    #         LandingZonePath                = $env:landingZonePath
+    #         SolutionPath                   = $env:solutionPath
+    #       }
+    #       & "$($env:actionPath)/src/Remove-GitHubRepository.ps1" @param
 
-          #* Move-LandingZoneDirectory.ps1
-          echo "::group::Move-LandingZoneDirectory"
+    #       echo "::endgroup::"
 
-          $param = @{
-            LandingZonePath                = $env:landingZonePath
-            RootLandingZonesPath           = $env:rootLandingZonesPath
-            DecommissionedLandingZonesPath = $env:decommissionedLandingZonesPath
-            SolutionPath                   = $env:solutionPath
-          }
-          $newLandingZonePath = & "$($env:actionPath)/src/Move-LandingZoneDirectory.ps1" @param
+    #       #* Move-LandingZoneDirectory.ps1
+    #       echo "::group::Move-LandingZoneDirectory"
 
-          Write-Output "new-landing-zone-path=$newLandingZonePath" >> $env:GITHUB_OUTPUT
+    #       $param = @{
+    #         LandingZonePath                = $env:landingZonePath
+    #         RootLandingZonesPath           = $env:rootLandingZonesPath
+    #         DecommissionedLandingZonesPath = $env:decommissionedLandingZonesPath
+    #         SolutionPath                   = $env:solutionPath
+    #       }
+    #       $newLandingZonePath = & "$($env:actionPath)/src/Move-LandingZoneDirectory.ps1" @param
 
-          echo "::endgroup::"
+    #       Write-Output "new-landing-zone-path=$newLandingZonePath" >> $env:GITHUB_OUTPUT
+
+    #       echo "::endgroup::"
