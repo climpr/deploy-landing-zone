@@ -24,12 +24,12 @@ inputs:
 
   az-ps-version:
     description: The version of Az PS modules to install.
-    default: 12.4.0
+    default: latest
     required: false
 
   bicep-version:
     description: The version of Bicep to install.
-    default: v0.30.23
+    default: latest
     required: false
 
   github-token:
@@ -54,13 +54,14 @@ runs:
       uses: climpr/install-psmodules@v1
       with:
         modules: |
-          Az.ManagementPartner:0.7.4
-          Az.Subscription:0.11.1
-          Microsoft.Graph.Authentication:2.24.0
-          Microsoft.Graph.Groups:2.24.0
-          Microsoft.Graph.Applications:2.24.0
+          Az.ManagementPartner:latest
+          Az.Subscription:latest
+          Microsoft.Graph.Authentication:latest
+          Microsoft.Graph.Groups:latest
+          Microsoft.Graph.Applications:latest
 
     - name: Install and configure Bicep version
+      if: inputs.bicep-version != 'latest'
       shell: pwsh
       run: |
         # Download desired Bicep version
