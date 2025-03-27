@@ -84,7 +84,7 @@ runs:
         if ($version -eq "latest") {
           $version = (Find-Module -Name Az -Repository PSGallery).Version
         }
-        Write-Output "az-ps-version=$version" >> $env:GITHUB_ENV
+        Write-Output "az-ps-version=$version" >> $env:GITHUB_OUTPUT
 
     - name: Process Landing Zone
       uses: azure/powershell@v2
