@@ -143,7 +143,7 @@ function New-LzSubscription {
             }
             
             #* Ensure subscription has correct invoice section, as long as billingScope is not an Enterprise Agreement (EA) account
-            if ($BillingScope -notlike "*/enrollmentAccounts/") {
+            if ($BillingScope -notlike "*/enrollmentAccounts/*") {
                 Write-Host "- Set subscription billing invoice section (Only for MCA)"
                 $uri = "https://management.azure.com$($billingAccountId)/billingSubscriptions/$($SubscriptionId)/move?api-version=2021-10-01"
                 $body = @{ destinationInvoiceSectionId = $BillingScope } | ConvertTo-Json
