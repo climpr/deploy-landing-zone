@@ -536,7 +536,7 @@ if (!$lzConfig.decommissioned) {
     elseif ($null -ne $config) {
         Write-Host "- Branch protection rule property is: $($config | ConvertTo-Json -Depth 10)"
         try {
-            Invoke-GitHubCliApiMethod -Method "PUT" -Uri "/repos/$org/$repo/branches/$defaultBranch/protection" -Body ($body | ConvertTo-Json) | Out-Null
+            Invoke-GitHubCliApiMethod -Method "PUT" -Uri "/repos/$org/$repo/branches/$defaultBranch/protection" -Body ($config | ConvertTo-Json) | Out-Null
             Write-Host "- Branch protection enabled on branch [$defaultBranch] on repository [$org/$repo]." 
         }
         catch {
