@@ -101,6 +101,16 @@ runs:
           #* Set debug preference from runner configuration
           $DebugPreference = [bool]$env:debug ? "Continue" : "SilentlyContinue"
 
+          #* View installed binaries, modules and versions
+          Write-Host "Installed az cli version:"
+          az version
+
+          Write-Host "Installed Bicep version:"
+          bicep --version
+
+          Write-Host "Installed PowerShell modules:"
+          Get-PSResource | Format-Table Name, Version, Repository
+
           #* Set-PartnerId.ps1
           echo "::group::Set-PartnerId"
 
