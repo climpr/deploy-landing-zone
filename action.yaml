@@ -24,12 +24,12 @@ inputs:
 
   az-ps-version:
     description: The version of Az PS modules to install.
-    default: 12.4.0
+    default: "latest"
     required: false
 
   bicep-version:
-    description: The version of Bicep to install.
-    default: v0.30.23
+    description: The version of Bicep to install. Use "latest" to install the latest version or specify a version number. If not specified, the default is "default", which uses the version bundled with the Az PowerShell module.
+    default: "default"
     required: false
 
   github-token:
@@ -61,10 +61,18 @@ runs:
           Microsoft.Graph.Applications:2.24.0
 
     - name: Install and configure Bicep version
-      shell: pwsh
+      if: ${{ inputs.bicep-version != 'default' }}
+      shell: bash
       run: |
+        # Get latest bicep version
+        if [ "${{ inputs.bicep-version }}" = "latest" ]; then
+          LATEST_VERSION=$(curl -s https://api.github.com/repos/Azure/bicep/releases/latest | jq -r .tag_name)
+        else
+          LATEST_VERSION="${{ inputs.bicep-version }}"
+        fi
+
         # Download desired Bicep version
-        curl -Lo bicep https://github.com/Azure/bicep/releases/download/${{ inputs.bicep-version }}/bicep-linux-x64
+        curl -Lo bicep https://github.com/Azure/bicep/releases/download/$LATEST_VERSION/bicep-linux-x64
 
         # Install Bicep
         chmod +x ./bicep
