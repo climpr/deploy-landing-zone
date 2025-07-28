@@ -109,7 +109,7 @@ runs:
           bicep --version
 
           Write-Host "Installed PowerShell modules:"
-          Get-PSResource | Format-Table Name, Version, Repository
+          Get-InstalledPSResource | Format-Table Name, Version, Repository
 
           #* Set-PartnerId.ps1
           echo "::group::Set-PartnerId"
