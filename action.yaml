@@ -54,11 +54,8 @@ runs:
       uses: climpr/install-psmodules@v1
       with:
         modules: |
-          Az.ManagementPartner:0.7.4
-          Az.Subscription:0.11.1
-          Microsoft.Graph.Authentication:2.24.0
-          Microsoft.Graph.Groups:2.24.0
-          Microsoft.Graph.Applications:2.24.0
+          Az.ManagementPartner
+          Az.Subscription
 
     - name: Install and configure Bicep version
       if: ${{ inputs.bicep-version != 'default' }}
