@@ -785,6 +785,24 @@ if (!$lzConfig.decommissioned) {
         }
 
         #endregion
+
+        ##################################
+        ###* MARK: Create environment variables
+        ##################################
+        #region
+        Write-Host "Create environment variables: $($environmentName)"
+
+        foreach ($environmentVariable in $environment.variables) {
+            $name = $environmentVariable.name
+            $value = $environmentVariable.value
+            gh variable set $name `
+                --repo $org/$repo `
+                --body $value `
+                --env $environmentName
+            Write-Host "Created repository environment [$environmentName] variable [$name]"
+        }
+
+        #endregion
     }
 
     #endregion
