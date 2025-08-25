@@ -680,7 +680,7 @@ if (!$lzConfig.decommissioned) {
         }
         elseif ("default" -eq $config) {
             $config = @{
-                reviewers                = $null
+                reviewers                = $environment.reviewers
                 wait_timer               = 0
                 deployment_branch_policy = $null
                 prevent_self_review      = $false
