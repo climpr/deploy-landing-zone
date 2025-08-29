@@ -741,11 +741,12 @@ if (!$lzConfig.decommissioned) {
             }
             "default" {
                 Write-Host "- Branch policy patterns property is 'default'. Default settings for GitHub is to not implement any branch policy patterns."
-                $config = @()
+                $branchPolicyPatterns = @()
                 $configure = $true
             }
             default {
-                Write-Host "- Branch policy patterns property is: $($config | ConvertTo-Json -Depth 10)"
+                Write-Host "- Branch policy patterns property is: $($environment.branchPolicyPatterns | ConvertTo-Json -Depth 10)"
+                $branchPolicyPatterns = $environment.branchPolicyPatterns
                 $configure = $true
             }
         }
