@@ -42,11 +42,6 @@ $defaultRepositoryConfig = $climprConfig.lzManagement.gitWorkloadRepository
 #* Parse Landing Zone configuration file
 $lzConfig = Get-Content -Path $lzFile.FullName -Encoding utf8 | ConvertFrom-Json -AsHashtable -Depth 10
 
-#* MSGraph login
-$token = Get-AzAccessToken -ResourceUrl "https://graph.microsoft.com"
-$secureAccessToken = $token.Token | ConvertTo-SecureString -AsPlainText -Force
-Connect-MgGraph -AccessToken $secureAccessToken | Out-Null
-
 #* Declare git variables
 $org = $lzConfig.organization
 $repo = $lzConfig.repoName
