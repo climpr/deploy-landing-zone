@@ -794,12 +794,20 @@ if (!$lzConfig.decommissioned) {
 
         foreach ($environmentVariable in $environment.variables) {
             $name = $environmentVariable.name
-            $value = $environmentVariable.value
+            $newValue = $environmentVariable.value
+
+            $currentValue = gh variable get $name --repo $org/$repo --env $environmentName
+
+            if ($currentValue -eq $newValue) {
+                Write-Host "Skip setting repository environment [$environmentName] variable [$name] value. No change."
+                continue
+            }
+
             gh variable set $name `
                 --repo $org/$repo `
-                --body $value `
+                --body $newValue `
                 --env $environmentName
-            Write-Host "Created repository environment [$environmentName] variable [$name]"
+            Write-Host "Set repository environment [$environmentName] variable [$name] value [$newValue]"
         }
 
         #endregion
