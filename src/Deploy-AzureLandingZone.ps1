@@ -32,6 +32,7 @@ Write-Debug "Script root directory: $(Resolve-Path -Relative -Path $scriptRoot)"
 
 #* Import Modules
 Import-Module $scriptRoot/modules/azure.psm1 -Force
+Import-Module $scriptRoot/modules/support-functions.psm1 -Force
 
 #* Resolve files
 $lzFile = Get-Item -Path "$LandingZonePath/metadata.json" -Force
@@ -45,6 +46,7 @@ $climprConfig = Get-Content -Path $climprConfigPath | ConvertFrom-Json -AsHashta
 #* Declare climprconfig settings
 $defaultLocation = $climprConfig.lzManagement.defaultLocation
 $defaultBillingAccountDisplayName = $climprConfig.lzManagement.billingAccountDisplayName
+$defaultResourceProviders = $climprConfig.lzManagement.defaultResourceProviders
 
 #* Parse Landing Zone configuration file
 $lzConfig = Get-Content -Path $lzFile.FullName -Encoding utf8 | ConvertFrom-Json -AsHashtable -Depth 10
@@ -146,6 +148,31 @@ if (!$lzConfig.decommissioned) {
                     }
             
                     $lzDeployment = New-LzDeployment @param
+
+                    #endregion
+
+                    ##################################
+                    ###* Register resource providers
+                    ##################################
+                    #region
+                    Write-Host "Register resource providers: $($environmentName)"
+
+                    $param = @{
+                        SubscriptionId    = $environment.azure.archetype -eq "no-lz" ? $environment.azure.deploymentSubscriptionId : $subId
+                        ResourceProviders = Join-HashTable -Hashtable1 $defaultResourceProviders -Hashtable2 ($environment.azure.resourceProviders ?? @{})
+                    }
+            
+                    $resourceProvidersResults = Enable-LzResourceProviders @param
+                    
+                    $failedRp = $resourceProvidersResults.failedProviders
+                    $failedRpFeature = $resourceProvidersResults.FailedFeatureRegistrations
+                    
+                    if ($failedRp -gt 0) {
+                        throw "Failed to register one or more resource providers: $($failedRp -join ', ')"
+                    }
+                    if ($failedRpFeature -gt 0) {
+                        throw "Failed to register one or more resource provider features: $($failedRpFeature -join ', ')"
+                    }
 
                     #endregion
 
