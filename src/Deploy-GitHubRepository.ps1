@@ -792,22 +792,39 @@ if (!$lzConfig.decommissioned) {
         #region
         Write-Host "Create environment variables: $($environmentName)"
 
-        foreach ($environmentVariable in $environment.variables) {
-            $name = $environmentVariable.name
-            $newValue = $environmentVariable.value
+        try {
+            $currentVariables = Invoke-GitHubCliApiMethod -Method "GET" -Uri "/repos/$org/$repo/environments/$environmentName/variables" | Select-Object -ExpandProperty variables
+        } catch {
+            Write-Error "Failed to get environment variables for environment [$environmentName] on repository [$org/$repo]. No variable will be updated! GitHub Api response: $($_.Exception)"
+            $failedtoGetVariables = $true
+        }
 
-            $currentValue = gh variable get $name --repo $org/$repo --env $environmentName
-
-            if ($currentValue -eq $newValue) {
-                Write-Host "Skip setting repository environment [$environmentName] variable [$name] value. No change."
+        foreach ($envVarName in $environment.variables.Keys) {
+            if ($failedtoGetVariables) {
+                Write-Host "- [$environmentName] Skipping variable [$envVarName], due to current variables could not be retrieved."
                 continue
             }
 
-            gh variable set $name `
-                --repo $org/$repo `
-                --body $newValue `
-                --env $environmentName
-            Write-Host "Set repository environment [$environmentName] variable [$name] value [$newValue]"
+            $newValue = $environment.variables[$envVarName]
+            $envVarExists = $currentVariables.name -contains $envVarName
+            $currentValue = $currentVariables | Where-Object name -eq $envVarName | Select-Object -ExpandProperty value
+
+            if ($envVarExists -and $currentValue -eq $newValue) {
+                Write-Host "- [$environmentName] Skipping environment variable, value has not changed [name=$envVarName, value=$currentValue]."
+                continue
+            }
+
+            try {
+                $cliSplat = @{
+                    Method = $envVarExists ? "PATCH" : "POST"
+                    Uri = "/repos/$org/$repo/environments/$environmentName/variables{0}" -f ($envVarExists ? "/$envVarName" : "")
+                    Body = @{name = $envVarName; value = $newValue} | ConvertTo-Json
+                }
+                Invoke-GitHubCliApiMethod @cliSplat | Out-Null
+                Write-Host ("- [$environmentName] {0} environment variable [name=$envVarName, value=$newValue]." -f ($envVarExists ? "Updated" : "Created"))
+            } catch {
+                Write-Error "Failed to set repository environment [$environmentName] variable [$envVarName] value [$newValue]. GitHub Api response: $($_.Exception)"
+            }
         }
 
         #endregion
