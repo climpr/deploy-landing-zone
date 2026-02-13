@@ -473,7 +473,7 @@ if (!$lzConfig.decommissioned) {
 
     $body = @{
         use_default        = $false
-        include_claim_keys = @(
+        include_claim_keys = $climprConfig.lzManagement.oidcClaimKeys ?  $climprConfig.lzManagement.oidcClaimKeys : @(
             "repo"
             "context"
             "ref"
