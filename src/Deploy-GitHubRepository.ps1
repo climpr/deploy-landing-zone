@@ -469,16 +469,18 @@ if (!$lzConfig.decommissioned) {
     ###* MARK: Set OIDC Hardening
     ##################################
     #region
-    Write-Host "Set OIDC Hardening"
+    $includedClaims = $climprConfig.lzManagement.oidcClaimKeys ?  $climprConfig.lzManagement.oidcClaimKeys : @(
+        "repo"
+        "context"
+        "ref"
+        "workflow"
+    )
+    
+    Write-Host "Set OIDC Hardening with included claims: $($includedClaims | ConvertTo-Json)"
 
     $body = @{
         use_default        = $false
-        include_claim_keys = $climprConfig.lzManagement.oidcClaimKeys ?  $climprConfig.lzManagement.oidcClaimKeys : @(
-            "repo"
-            "context"
-            "ref"
-            "workflow"
-        )
+        include_claim_keys = $includedClaims
     }
 
     try {
